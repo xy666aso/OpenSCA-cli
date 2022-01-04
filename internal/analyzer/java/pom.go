@@ -14,11 +14,6 @@ import (
 	"strings"
 )
 
-var (
-	// 存储property信息 map[dirpath]map[property-key]property-value
-	properties = map[string]map[string]string{}
-)
-
 // Pom文件
 type PomXml struct {
 	PomDependency
@@ -48,12 +43,17 @@ type PomDependency struct {
  */
 func (a Analyzer) parsePomXml(dirpath string, data []byte, isimport bool) *PomXml {
 
+	if index := strings.Index(dirpath, "["); index != -1 {
+		dirpath = dirpath[:index]
+	}
+	dirpath = strings.Trim(dirpath, "/")
+
 	// 检测是否是无效数据
 	invalid := func(v string) bool {
 		return strings.Contains(v, "$") || len(v) == 0
 	}
 
-	properties = a.properties
+	properties := a.properties
 
 	// 解析pom.xml
 	pom := &PomXml{}
@@ -61,12 +61,6 @@ func (a Analyzer) parsePomXml(dirpath string, data []byte, isimport bool) *PomXm
 	err := xml.Unmarshal(data, pom)
 	if err != nil && err != io.EOF {
 		return pom
-	}
-	if invalid(pom.GroupId) && pom.Parent.GroupId != "" {
-		pom.GroupId = pom.Parent.GroupId
-	}
-	if invalid(pom.Version) && pom.Parent.Version != "" {
-		pom.Version = pom.Parent.Version
 	}
 
 	// 解析property
@@ -82,8 +76,6 @@ func (a Analyzer) parsePomXml(dirpath string, data []byte, isimport bool) *PomXm
 		}
 	}
 
-	// 当前property集合
-	property := map[string]string{}
 	// 获取parent的property
 	parent := pom.Parent
 	if _, ok := a.poms[dirpath]; !ok {
@@ -101,6 +93,8 @@ func (a Analyzer) parsePomXml(dirpath string, data []byte, isimport bool) *PomXm
 			break
 		}
 	}
+	// 当前property集合
+	property := map[string]string{}
 	// 计算根目录到当前目录的所有property并集
 	paths := strings.Split(dirpath, "/")
 	for i := range paths {
@@ -202,11 +196,9 @@ func (a Analyzer) parsePomXml(dirpath string, data []byte, isimport bool) *PomXm
 		}
 		if invalid(dep.Version) {
 			pom.Dependencies[i].Version = getValue(dep.Version)
-			if invalid(pom.Dependencies[i].Version) {
-				if v, ok := property[fmt.Sprintf("%s|%s", pom.Dependencies[i].GroupId, pom.Dependencies[i].ArtifactId)]; ok {
-					pom.Dependencies[i].Version = v
-				}
-			}
+		}
+		if v, ok := property[fmt.Sprintf("%s|%s", pom.Dependencies[i].GroupId, pom.Dependencies[i].ArtifactId)]; ok {
+			pom.Dependencies[i].Version = v
 		}
 	}
 	return pom
@@ -217,7 +209,7 @@ func (a Analyzer) parsePomXml(dirpath string, data []byte, isimport bool) *PomXm
  * @param {[]byte} data 文件数据
  */
 func (a Analyzer) parsePomProperties(dirpath string, data []byte) {
-	properties = a.properties
+	properties := a.properties
 	if _, ok := properties[dirpath]; !ok {
 		properties[dirpath] = map[string]string{}
 	}
