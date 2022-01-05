@@ -43,9 +43,9 @@ type PomDependency struct {
  */
 func (a Analyzer) parsePomXml(dirpath string, data []byte, isimport bool) *PomXml {
 
-	if index := strings.Index(dirpath, "["); index != -1 {
-		dirpath = dirpath[:index]
-	}
+	// if index := strings.Index(dirpath, "["); index != -1 {
+	// 	dirpath = dirpath[:index]
+	// }
 	dirpath = strings.Trim(dirpath, "/")
 
 	// 检测是否是无效数据
@@ -81,7 +81,7 @@ func (a Analyzer) parsePomXml(dirpath string, data []byte, isimport bool) *PomXm
 	if _, ok := a.poms[dirpath]; !ok {
 		a.poms[dirpath] = map[string]struct{}{}
 	}
-	for parent.ArtifactId != "" && parent.GroupId != "" && parent.Version != "" {
+	for !invalid(parent.ArtifactId) && !invalid(parent.GroupId) && !invalid(parent.Version) {
 		key := strings.ToLower(fmt.Sprintf("%s:%s:%s", parent.GroupId, parent.ArtifactId, parent.Version))
 		if _, ok := a.poms[dirpath][key]; !ok {
 			a.poms[dirpath][key] = struct{}{}
@@ -174,8 +174,12 @@ func (a Analyzer) parsePomXml(dirpath string, data []byte, isimport bool) *PomXm
 	// 存储DependencyManagement的值
 	for _, dep := range pom.DependencyManagement {
 		ver := getValue(dep.Version)
-		property[fmt.Sprintf("%s|%s", dep.GroupId, dep.ArtifactId)] = ver
-		a.properties[dirpath][fmt.Sprintf("%s|%s", dep.GroupId, dep.ArtifactId)] = ver
+		key := fmt.Sprintf("%s|%s", dep.GroupId, dep.ArtifactId)
+		property[key] = ver
+		a.properties[dirpath][key] = ver
+		if strings.EqualFold(key, "org.slf4j|slf4j-log4j12") {
+			println(dirpath, ver, fmt.Sprintf("%s:%s:%s", pom.GroupId, pom.ArtifactId, pom.Version))
+		}
 		// 检查scope标签是否为import
 		if dep.Scope == "import" {
 			d := srt.NewDependency()
@@ -199,6 +203,9 @@ func (a Analyzer) parsePomXml(dirpath string, data []byte, isimport bool) *PomXm
 		}
 		if v, ok := property[fmt.Sprintf("%s|%s", pom.Dependencies[i].GroupId, pom.Dependencies[i].ArtifactId)]; ok {
 			pom.Dependencies[i].Version = v
+		}
+		if strings.EqualFold(dep.ArtifactId, "slf4j-log4j12") && strings.EqualFold(pom.ArtifactId, "zookeeper") {
+			println(dirpath, dep.ArtifactId, dep.Version, pom.Dependencies[i].Version)
 		}
 	}
 	return pom

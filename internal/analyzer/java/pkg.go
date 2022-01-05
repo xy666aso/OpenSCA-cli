@@ -152,7 +152,8 @@ func (a Analyzer) ParseSubDependencies(root *srt.DepTree) {
 				}
 			}
 			// 获取组件pom文件并解析子依赖
-			pom := a.getpom(node.Dependency, path.Dir(node.Path), repos, false)
+			// pom := a.getpom(node.Dependency, path.Dir(node.Path), repos, false)
+			pom := a.getpom(node.Dependency, node.Path, repos, false)
 			if pom != nil {
 				for _, dep := range pom.Dependencies {
 					if dep.Scope == "test" || dep.Scope == "provided" || dep.Optional {
