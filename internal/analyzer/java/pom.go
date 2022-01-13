@@ -173,8 +173,8 @@ func (a Analyzer) parsePomXml(dirpath string, data []byte, isimport bool) *PomXm
 
 	// 存储DependencyManagement的值
 	for _, dep := range pom.DependencyManagement {
-		ver := getValue(dep.Version)
 		key := fmt.Sprintf("%s|%s", dep.GroupId, dep.ArtifactId)
+		ver := getValue(dep.Version)
 		property[key] = ver
 		a.properties[dirpath][key] = ver
 		if strings.EqualFold(key, "org.slf4j|slf4j-log4j12") {
@@ -187,6 +187,14 @@ func (a Analyzer) parsePomXml(dirpath string, data []byte, isimport bool) *PomXm
 			d.Name = dep.ArtifactId
 			d.Version = srt.NewVersion(ver)
 			a.getpom(d, dirpath, pom.Repositories, true)
+		}
+		// 处理exclusion
+		if len(dep.Exclusions) > 0 {
+			for _, exc := range dep.Exclusions {
+				excKey := fmt.Sprintf("%s|%s", exc.GroupId, exc.ArtifactId)
+				delete(a.properties[dirpath], excKey)
+				delete(property, excKey)
+			}
 		}
 	}
 
